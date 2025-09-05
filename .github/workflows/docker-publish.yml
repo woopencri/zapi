@@ -1,0 +1,45 @@
+# 工作流名称
+name: Publish Docker image to GHCR
+
+# 触发工作流的事件，这里设置为当有代码推送到 main 分支时触发
+on:
+  push:
+    branches: [ main ] # 你可以修改为你想触发构建的分支，比如 master
+
+# 定义工作任务
+jobs:
+  # 任务ID，可以自定义
+  build-and-push:
+    # 运行此任务的虚拟机环境
+    runs-on: ubuntu-latest
+
+    # 为此任务授予的权限
+    permissions:
+      contents: read      # 允许读取仓库内容
+      packages: write    # 允许写入 GitHub Packages (GHCR)
+
+    # 任务步骤
+    steps:
+      # 步骤1: 检出代码
+      # 使用官方的 checkout action 来获取你的仓库代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 步骤2: 登录到 GitHub Container Registry (GHCR)
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }} # github.actor 会自动解析为你的 GitHub 用户名
+          password: ${{ secrets.GITHUB_TOKEN }} # GITHUB_TOKEN 是由 GitHub 自动生成的临时令牌，用于授权
+
+      # 步骤3: 构建 Docker 镜像并推送到 GHCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .  # Dockerfile 所在的上下文路径，. 表示仓库根目录
+          push: true  # 设置为 true，表示构建后立即推送
+          # 为镜像打上标签。我们打两个标签：一个用 commit SHA 保证唯一，一个用 'latest' 表示最新
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
